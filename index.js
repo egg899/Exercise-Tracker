@@ -41,7 +41,10 @@ app.post('/api/users', async (req, res) => {
   const savedUser = await newUser.save();
 
   console.log('Usuario guardado: ',savedUser);
-  res.json(savedUser);
+  res.json({
+  username: savedUser.username,
+  _id: savedUser._id
+});
   } catch (err) {
     console.error('Error al crear el usuario:', err);
     res.status(500).json({error: 'Error al crear el usuario'})
@@ -90,7 +93,15 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
   }
 });
 
-
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find({}).select('_id username');
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener los usuarios' });
+  }
+});
 
 app.get('/api/users/:_id/logs', async (req, res) => {
   const { _id } = req.params;
