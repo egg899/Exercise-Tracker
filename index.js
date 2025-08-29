@@ -115,7 +115,6 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
     let query = { userId: _id };
-
     if (from || to) query.date = {};
     if (from) query.date.$gte = new Date(from);
     if (to) query.date.$lte = new Date(to);
@@ -124,16 +123,18 @@ app.get('/api/users/:_id/logs', async (req, res) => {
 
     if (limit) exercises = exercises.slice(0, Number(limit));
 
-    // Devolver en formato exacto que FCC pide
+    // Asegurarse de que cada elemento tenga description (string), duration (number), date (string)
+    const log = exercises.map(e => ({
+      description: e.description,
+      duration: Number(e.duration),
+      date: e.date.toDateString()
+    }));
+
     res.json({
       username: user.username,
       _id: user._id,
-      count: exercises.length,
-      log: exercises.map(e => ({
-        description: e.description,
-        duration: e.duration,
-        date: e.date.toDateString()
-      }))
+      count: log.length,
+      log: log
     });
 
   } catch (err) {
@@ -141,6 +142,7 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     res.status(500).json({ error: 'Error al obtener los logs' });
   }
 });
+
 
 
 // Servir página principal
