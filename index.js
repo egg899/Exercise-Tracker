@@ -1,3 +1,6 @@
+// --------------------
+// index.js
+// --------------------
 const express = require('express');
 const app = express();
 const cors = require('cors');
@@ -5,16 +8,23 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 require('dotenv').config();
 
+// --------------------
 // Middleware
+// --------------------
 app.use(cors());
 app.use(express.static('public'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
+// --------------------
 // Conectar a MongoDB
-mongoose.connect(process.env.MONGO_URI, {})
-  .then(() => console.log('✅ Conectado a MongoDB'))
-  .catch(err => console.error(err));
+// --------------------
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log('✅ Conectado a MongoDB'))
+.catch(err => console.error(err));
 
 // --------------------
 // Modelos
@@ -38,6 +48,11 @@ const Exercise = mongoose.model('Exercise', exerciseSchema);
 // --------------------
 // Rutas
 // --------------------
+
+// Página principal
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/views/index.html');
+});
 
 // Crear un nuevo usuario
 app.post('/api/users', async (req, res) => {
@@ -73,7 +88,6 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     const { _id } = req.params;
     const { description, duration, date } = req.body;
 
-    // Verificar que el usuario exista
     const user = await User.findById(_id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
@@ -86,7 +100,6 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
 
     const savedExercise = await newExercise.save();
 
-    // Respuesta formateada según FreeCodeCamp
     res.json({
       username: user.username,
       description: savedExercise.description,
@@ -95,7 +108,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
       date: savedExercise.date.toDateString()
     });
   } catch (err) {
-    console.error('Error al crear el ejercicio:', err);
+    console.error(err);
     res.status(500).json({ error: 'Error al crear el ejercicio' });
   }
 });
@@ -106,18 +119,23 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     const { _id } = req.params;
     const { from, to, limit } = req.query;
 
-    // Verificar usuario
     const user = await User.findById(_id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-    // Construir query
-    let query = { userId: _id };
-    if (from || to) query.date = {};
-    if (from) query.date.$gte = new Date(from);
-    if (to) query.date.$lte = new Date(to);
+    // Buscar ejercicios
+    let exercises = await Exercise.find({ userId: _id }).sort({ date: 1 });
 
-    let exercises = await Exercise.find(query).sort({ date: 'asc' });
+    // Filtrar por fechas
+    if (from) {
+      const fromDate = new Date(from);
+      exercises = exercises.filter(e => e.date >= fromDate);
+    }
+    if (to) {
+      const toDate = new Date(to);
+      exercises = exercises.filter(e => e.date <= toDate);
+    }
 
+    // Aplicar límite
     if (limit) exercises = exercises.slice(0, Number(limit));
 
     // Formatear log
@@ -132,15 +150,11 @@ app.get('/api/users/:_id/logs', async (req, res) => {
       }))
     });
   } catch (err) {
-    console.error('Error al obtener los logs:', err);
+    console.error(err);
     res.status(500).json({ error: 'Error al obtener los logs' });
   }
 });
 
-// Servir página principal
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/views/index.html');
-});
 
 // --------------------
 // Iniciar servidor
