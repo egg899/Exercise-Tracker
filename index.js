@@ -115,8 +115,8 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     const user = await User.findById(_id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
+    // Construir query
     let filter = { userId: _id };
-
     if (from || to) filter.date = {};
     if (from) filter.date.$gte = new Date(from);
     if (to) filter.date.$lte = new Date(to);
@@ -125,22 +125,23 @@ app.get('/api/users/:_id/logs', async (req, res) => {
 
     if (limit) exercises = exercises.slice(0, Number(limit));
 
+    // Mapear ejercicios a objetos literales
     const log = exercises.map(e => ({
-      description: e.description.toString(),
+      description: String(e.description),
       duration: Number(e.duration),
       date: e.date.toDateString()
     }));
 
     res.json({
-      username: user.username,
-      _id: user._id.toString(),
+      _id: String(user._id),
+      username: String(user.username),
       count: log.length,
       log
     });
 
   } catch (err) {
-    console.error('Error al obtener logs:', err);
-    res.status(500).json({ error: 'Error al obtener los logs' });
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener logs' });
   }
 });
 
