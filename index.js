@@ -106,6 +106,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
 });
 
 // Obtener el log de ejercicios de un usuario
+// GET /api/users/:_id/logs
 app.get('/api/users/:_id/logs', async (req, res) => {
   try {
     const { _id } = req.params;
@@ -114,34 +115,35 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     const user = await User.findById(_id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-    let query = { userId: _id };
-    if (from || to) query.date = {};
-    if (from) query.date.$gte = new Date(from);
-    if (to) query.date.$lte = new Date(to);
+    let filter = { userId: _id };
 
-    let exercises = await Exercise.find(query).sort({ date: 'asc' });
+    if (from || to) filter.date = {};
+    if (from) filter.date.$gte = new Date(from);
+    if (to) filter.date.$lte = new Date(to);
+
+    let exercises = await Exercise.find(filter).sort({ date: 'asc' });
 
     if (limit) exercises = exercises.slice(0, Number(limit));
 
-    // Asegurarse de que cada elemento tenga description (string), duration (number), date (string)
     const log = exercises.map(e => ({
-      description: e.description,
+      description: e.description.toString(),
       duration: Number(e.duration),
       date: e.date.toDateString()
     }));
 
     res.json({
       username: user.username,
-      _id: user._id,
+      _id: user._id.toString(),
       count: log.length,
-      log: log
+      log
     });
 
   } catch (err) {
-    console.error(err);
+    console.error('Error al obtener logs:', err);
     res.status(500).json({ error: 'Error al obtener los logs' });
   }
 });
+
 
 
 
