@@ -72,15 +72,31 @@ app.post('/api/users', async (req, res) => {
 });
 
 // Listar todos los usuarios
-app.get('/api/users', async (req, res) => {
+app.post('/api/users', async (req, res) => {
   try {
-    const users = await User.find({}).select('_id username');
-    res.json(users);
+    const { username } = req.body;
+
+    // Buscar si ya existe
+    let user = await User.findOne({ username });
+    if (user) {
+      // Si existe, devolverlo directamente
+      return res.json({ username: user.username, _id: user._id });
+    }
+
+    // Si no existe, crear uno nuevo
+    const newUser = new User({ username });
+    const savedUser = await newUser.save();
+
+    res.json({
+      username: savedUser.username,
+      _id: savedUser._id
+    });
   } catch (err) {
-    console.error('Error al obtener los usuarios:', err);
-    res.status(500).json({ error: 'Error al obtener los usuarios' });
+    console.error('Error al crear el usuario:', err);
+    res.status(500).json({ error: 'Error al crear el usuario' });
   }
 });
+
 
 // Agregar un ejercicio a un usuario
 app.post('/api/users/:_id/exercises', async (req, res) => {
