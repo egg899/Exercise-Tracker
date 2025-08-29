@@ -5,67 +5,75 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 require('dotenv').config();
 
-
-
-
-app.use(cors())
-app.use(express.static('public'))
-
 // Middleware
+app.use(cors());
+app.use(express.static('public'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-// app.use(express.json());
-// Conectar a MongoDB
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('✅ Conectado a MongoDB'))
-.catch(err => console.error);
 
-// Modelo de Usuario
+// Conectar a MongoDB
+mongoose.connect(process.env.MONGO_URI, {})
+  .then(() => console.log('✅ Conectado a MongoDB'))
+  .catch(err => console.error(err));
+
+// --------------------
+// Modelos
+// --------------------
+
+// Usuario
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true }
 });
-
 const User = mongoose.model('User', userSchema);
 
-app.post('/api/users', async (req, res) => {
-
-  try{
-    const { username } = req.body;
-  // console.log('username:', username);
-  // res.send('OK'); // Para que la request no quede colgada
-  const newUser = new User({ username });
-  // console.log(newUser);
-  const savedUser = await newUser.save();
-
-  console.log('Usuario guardado: ',savedUser);
-  res.json({
-  username: savedUser.username,
-  _id: savedUser._id
-});
-  } catch (err) {
-    console.error('Error al crear el usuario:', err);
-    res.status(500).json({error: 'Error al crear el usuario'})
-  }
-   
-});
-
+// Ejercicio
 const exerciseSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   description: { type: String, required: true },
   duration: { type: Number, required: true },
   date: { type: Date, default: Date.now }
 });
-
 const Exercise = mongoose.model('Exercise', exerciseSchema);
 
+// --------------------
+// Rutas
+// --------------------
+
+// Crear un nuevo usuario
+app.post('/api/users', async (req, res) => {
+  try {
+    const { username } = req.body;
+    const newUser = new User({ username });
+    const savedUser = await newUser.save();
+
+    res.json({
+      username: savedUser.username,
+      _id: savedUser._id
+    });
+  } catch (err) {
+    console.error('Error al crear el usuario:', err);
+    res.status(500).json({ error: 'Error al crear el usuario' });
+  }
+});
+
+// Listar todos los usuarios
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find({}).select('_id username');
+    res.json(users);
+  } catch (err) {
+    console.error('Error al obtener los usuarios:', err);
+    res.status(500).json({ error: 'Error al obtener los usuarios' });
+  }
+});
+
+// Agregar un ejercicio a un usuario
 app.post('/api/users/:_id/exercises', async (req, res) => {
   try {
     const { _id } = req.params;
     const { description, duration, date } = req.body;
 
+    // Verificar que el usuario exista
     const user = await User.findById(_id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
@@ -78,7 +86,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
 
     const savedExercise = await newExercise.save();
 
-    // Respuesta correcta para FCC
+    // Respuesta formateada según FreeCodeCamp
     res.json({
       username: user.username,
       description: savedExercise.description,
@@ -86,46 +94,33 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
       _id: user._id,
       date: savedExercise.date.toDateString()
     });
-
   } catch (err) {
-    console.error(err);
+    console.error('Error al crear el ejercicio:', err);
     res.status(500).json({ error: 'Error al crear el ejercicio' });
   }
 });
 
-app.get('/api/users', async (req, res) => {
-  try {
-    const users = await User.find({}).select('_id username');
-    res.json(users);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al obtener los usuarios' });
-  }
-});
-
+// Obtener el log de ejercicios de un usuario
 app.get('/api/users/:_id/logs', async (req, res) => {
-  const { _id } = req.params;
-  const { from, to, limit } = req.query;
-
   try {
-    // Buscar el usuario
+    const { _id } = req.params;
+    const { from, to, limit } = req.query;
+
+    // Verificar usuario
     const user = await User.findById(_id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-    // Buscar ejercicios
+    // Construir query
     let query = { userId: _id };
     if (from || to) query.date = {};
     if (from) query.date.$gte = new Date(from);
     if (to) query.date.$lte = new Date(to);
 
-    // let exercises = await Exercise.find(query)
-    //   .select('description duration date -_id')
-    //   .sort({ date: 'asc' });
-     let exercises = await Exercise.find(query)
-      .sort({ date: 'asc' });
+    let exercises = await Exercise.find(query).sort({ date: 'asc' });
 
     if (limit) exercises = exercises.slice(0, Number(limit));
 
+    // Formatear log
     res.json({
       username: user.username,
       count: exercises.length,
@@ -137,23 +132,19 @@ app.get('/api/users/:_id/logs', async (req, res) => {
       }))
     });
   } catch (err) {
-    console.error(err);
+    console.error('Error al obtener los logs:', err);
     res.status(500).json({ error: 'Error al obtener los logs' });
   }
 });
 
-
-
-
+// Servir página principal
 app.get('/', (req, res) => {
-  
-  res.sendFile(__dirname + '/views/index.html')
+  res.sendFile(__dirname + '/views/index.html');
 });
 
-
-
-
-
+// --------------------
+// Iniciar servidor
+// --------------------
 const listener = app.listen(process.env.PORT || 3000, () => {
-  console.log('Your app is listening on port http://localhost:' + listener.address().port)
-})
+  console.log('Your app is listening on port http://localhost:' + listener.address().port);
+});
